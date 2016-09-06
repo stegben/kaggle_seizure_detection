@@ -1,0 +1,3 @@
+3 patients
+
+Training Data: {patient id}_{event id}_{label}.mat
