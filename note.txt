@@ -1,3 +1,9 @@
-3 patients
+1. 3 patients: 3 zip files denote each of them.
 
-Training Data: {patient id}_{event id}_{label}.mat
+data: iEEG sampled from 16 electrodes at 400 Hz, 10 min clips within an hour
+
+can use externel data http://ieeg.org
+
+2. Training Data: {patient id}_{event id}_{label}.mat
+
+classification: Interictal(base line, 4 hours before or after any seizure event) v.s. Preictal (5~65 minutes before seizure)
