@@ -67,7 +67,7 @@ def extract_test_from_path(path_pattern):
     n_samples, all_fpath = get_all_file_name(path_pattern)
     data = np.memmap(TEST_RAW_MEMMAP_FNAME, shape=(n_samples ,240000, 16), dtype='float32', mode='w+')
     # data = np.zeros(shape=(n_samples ,240000, 16), dtype='float32')
-    result = Parallel(n_jobs=24, verbose=12)([delayed(process_file_get_meta)(data, i, fpath) for i, fpath in enumerate(all_fpath)])
+    result = Parallel(n_jobs=24, verbose=12)([delayed(process_raw_test)(data, i, fpath) for i, fpath in enumerate(all_fpath)])
 
     test_result = {}
     test_result['data'] = data
