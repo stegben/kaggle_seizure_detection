@@ -1,0 +1,5 @@
+./raw_data/train_1/1_45_1.mat
+Did not fully consume compressed contents of an miCOMPRESSED element. This can indicate that the .mat file is corrupted.
+{240000.0}
+{'1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16'}
+{400.0}
