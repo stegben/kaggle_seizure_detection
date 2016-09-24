@@ -88,9 +88,9 @@ def main():
     test_data_path_pattern = sys.argv[2]
 
     raw_data_train = extract_train_from_path(train_data_path_pattern)
-    print(raw_data_train.shape)
+    print(raw_data_train['data'].shape)
     raw_data_test = extract_test_from_path(test_data_path_pattern)
-    print(raw_data_test.shape)
+    print(raw_data_test['data'].shape)
 
     train, test = gen_feature(raw_data_train, raw_data_test)
 
