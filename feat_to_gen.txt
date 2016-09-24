@@ -1,0 +1,8 @@
+mean, std
+FFT
+entropy
+
+
+EMD based:
+- the trend (first residue)
+- HT of each

@@ -93,3 +93,5 @@ raw_data/
 # kaggle
 **submission**
 *.zip
+
+cache/
