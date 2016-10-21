@@ -21,11 +21,11 @@ from utils import spectrum_entropy
 
 CACHE_DIR = '../cache'
 RAW_DATA_DIR = '../raw_data/'
-TRAIN_RAW_MEMMAP_FNAME = '../train.npy'
-TEST_RAW_MEMMAP_FNAME = '../test.npy'
+TRAIN_RAW_MEMMAP_FNAME = '../train_20_10.npy'
+TEST_RAW_MEMMAP_FNAME = '../test_20_10.npy'
 
-FRAME_SIZE = 400 * 10
-FRAME_SPACING = 400 * 5
+FRAME_SIZE = 400 * 20
+FRAME_SPACING = 400 * 10
 
 memory = Memory(cachedir=CACHE_DIR, verbose=1)
 
@@ -49,15 +49,18 @@ def process_raw_train(data, idx, fpath, n_frames_per_sample, frame_size, spacing
     labels = []
     hours = []
     fnames = []
+    processed_array = np.ones((n_frames_per_sample, frame_size, 16), dtype='float32')
     for k in range(n_frames_per_sample):
-        data_idx = idx * n_frames_per_sample + k
         start = k * spacing
         end = k*spacing + frame_size
-        data[data_idx, :, :] = mat['dataStruct']['data'][0][0][start:end, :]
+        processed_array[k, :, :] = mat['dataStruct']['data'][0][0][start:end, :]
         pids.append(patient_id)
         labels.append(label)
         hours.append(hour)
         fnames.append(file_name)
+    start_idx = idx * n_frames_per_sample
+    end_idx = (idx + 1) * n_frames_per_sample
+    data[start_idx:end_idx, :, :] = processed_array
 
     return {
         'patient_id': pids,
@@ -74,13 +77,16 @@ def process_raw_test(data, idx, fpath, n_frames_per_sample, frame_size, spacing)
 
     pids = []
     fnames = []
+    processed_array = np.ones((n_frames_per_sample, frame_size, 16), dtype='float32')
     for k in range(n_frames_per_sample):
-        data_idx = idx * n_frames_per_sample + k
         start = k * spacing
         end = k*spacing + frame_size
-        data[data_idx, :, :] = mat['dataStruct']['data'][0][0][start:end, :]
+        processed_array[k, :, :] = mat['dataStruct']['data'][0][0][start:end, :]
         pids.append(patient_id)
         fnames.append(file_name)
+    start_idx = idx * n_frames_per_sample
+    end_idx = (idx + 1) * n_frames_per_sample
+    data[start_idx:end_idx, :, :] = processed_array
 
     return {
         'patient_id': pids,
@@ -100,7 +106,7 @@ def extract_train_from_path(path_pattern, raw_memmap_path, frame_size, spacing):
     works = []
     for i, fpath in enumerate(all_fpath):
         works.append(delayed(process_raw_train)(data, i, fpath, n_frames_per_sample, frame_size, spacing))
-    result = Parallel(n_jobs=30, verbose=1)(works)
+    result = Parallel(n_jobs=3, verbose=1)(works)
 
     train_result = {}
     train_result['data'] = {'path': raw_memmap_path, 'shape': shape}
@@ -124,7 +130,7 @@ def extract_test_from_path(path_pattern, raw_memmap_path, frame_size, spacing):
     works = []
     for i, fpath in enumerate(all_fpath):
         works.append(delayed(process_raw_test)(data, i, fpath, n_frames_per_sample, frame_size, spacing))
-    result = Parallel(n_jobs=30, verbose=1)(works)
+    result = Parallel(n_jobs=2, verbose=1)(works)
 
     test_result = {}
     test_result['data'] = {'path': raw_memmap_path, 'shape': shape}
@@ -209,7 +215,7 @@ def gen_freq_of_each_channel(data):
             freq = band[band_idx]
             name = 'channel_' + str(idx) + 'freq_ratio_' + str(freq)
             column_names.append(name)
-    feature = pd.DataFrame(np.array(raw_feature), columns=column_names).fillna(1.0)
+    feature = pd.DataFrame(np.array(raw_feature), columns=column_names).fillna(0.0)
     return  feature
 
 
@@ -233,6 +239,7 @@ def gen_entropy_of_each_channel(data):
     raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_entropy)(data, n, band, 400) for n in range(n_samples))
     column_names = ['entropy_of_channel_' + str(idx) for idx in range(n_channels)]
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
+    feature = feature.fillna(feature.mean())
     return  feature
 
 
@@ -256,10 +263,11 @@ def gen_corr_between_signals(data):
         for l in range(k+1, n_channels):
             column_names.append('corr_between_{}_{}'.format(k, l))
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
+    feature = feature.fillna(0)
     return  feature
 
 
-def get_freq_corr_sim(data, idx, band, sampling_rate):
+def get_freq_corr(data, idx, band, sampling_rate):
     signals = data[idx, :, :]
     n_channels = data.shape[2]
 
@@ -277,17 +285,18 @@ def get_freq_corr_sim(data, idx, band, sampling_rate):
     return np.array(feature)
 
 @memory.cache
-def gen_freq_corr_sim_between_signals(data):
+def gen_freq_corr_between_signals(data):
     n_channels = data.shape[2]
     n_samples = data.shape[0]
     band = [freq for freq in range(0, 100)]
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_freq_corr_sim)(data, n, band, 400) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_freq_corr)(data, n, band, 400) for n in range(n_samples))
 
     column_names = []
     for k in range(n_channels):
         for l in range(k+1, n_channels):
-            column_names.append('freq_corr_sim_between_{}_{}'.format(k, l))
+            column_names.append('freq_corr_between_{}_{}'.format(k, l))
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
+    feature = feature.fillna(0)
     return  feature
 
 
@@ -343,14 +352,13 @@ def gen_feature(raw_data_train, raw_data_test):
     # gen feature
     print('generate feature of each channel of train...')
     train_array = np.memmap(raw_data_train['data']['path'], shape=raw_data_train['data']['shape'], mode='r')
-    import ipdb; ipdb.set_trace()
     train_mean_of_each_channel = gen_mean_of_each_channel(train_array)
     train_std_of_each_channel = gen_std_of_each_channel(train_array)
     train_abs_mean_of_each_channel = gen_abs_mean_of_each_channel(train_array)
     train_freq_of_each_channel = gen_freq_of_each_channel(train_array)
     train_entropy_of_each_channel = gen_entropy_of_each_channel(train_array)
     train_corr_between_signals = gen_corr_between_signals(train_array)
-    train_freq_corr_sim_between_signals = gen_freq_corr_sim_between_signals(train_array)
+    train_freq_corr_between_signals = gen_freq_corr_between_signals(train_array)
 
     print('generate feature of each channel of test...')
     test_array = np.memmap(raw_data_test['data']['path'], shape=raw_data_test['data']['shape'], mode='r')
@@ -360,7 +368,7 @@ def gen_feature(raw_data_train, raw_data_test):
     test_freq_of_each_channel = gen_freq_of_each_channel(test_array)
     test_entropy_of_each_channel = gen_entropy_of_each_channel(test_array)
     test_corr_between_signals = gen_corr_between_signals(test_array)
-    test_freq_corr_sim_between_signals = gen_freq_corr_sim_between_signals(test_array)
+    test_freq_corr_between_signals = gen_freq_corr_between_signals(test_array)
 
     df_train = pd.concat([
         train_file_name,
@@ -370,7 +378,7 @@ def gen_feature(raw_data_train, raw_data_test):
         train_freq_of_each_channel,
         train_entropy_of_each_channel,
         train_corr_between_signals,
-        train_freq_corr_sim_between_signals,
+        train_freq_corr_between_signals,
         train_dummy_pid,
         label,
         hour,
@@ -383,18 +391,19 @@ def gen_feature(raw_data_train, raw_data_test):
         test_freq_of_each_channel,
         test_entropy_of_each_channel,
         test_corr_between_signals,
-        test_freq_corr_sim_between_signals,
+        test_freq_corr_between_signals,
         test_dummy_pid,
     ], axis=1)
+    import ipdb; ipdb.set_trace()
 
-    del train_array
-    del test_array
+    # del train_array
+    # del test_array
 
     return  df_train, df_test
 
 
 @memory.cache
-def split_train_by_label(df_train, test_size=0.2, random_state=1234):
+def split_train_by_label(df_train, test_size=0.2, random_state=5678):
     columns = df_train.columns
 
     df_train_false = df_train[df_train['hour'] == -1]
