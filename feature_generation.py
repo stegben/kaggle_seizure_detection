@@ -21,11 +21,11 @@ from utils import spectrum_entropy
 
 CACHE_DIR = '../cache'
 RAW_DATA_DIR = '../raw_data/'
-TRAIN_RAW_MEMMAP_FNAME = '../train_20_10.npy'
-TEST_RAW_MEMMAP_FNAME = '../test_20_10.npy'
+TRAIN_RAW_MEMMAP_FNAME = '../train_60_30.npy'
+TEST_RAW_MEMMAP_FNAME = '../test_60_30.npy'
 
-FRAME_SIZE = 400 * 20
-FRAME_SPACING = 400 * 10
+FRAME_SIZE = 400 * 60
+FRAME_SPACING = 400 * 30
 
 memory = Memory(cachedir=CACHE_DIR, verbose=1)
 
