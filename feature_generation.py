@@ -21,11 +21,11 @@ from utils import spectrum_entropy
 
 CACHE_DIR = '../cache'
 RAW_DATA_DIR = '../raw_data/'
-TRAIN_RAW_MEMMAP_FNAME = '../train_60_30.npy'
-TEST_RAW_MEMMAP_FNAME = '../test_60_30.npy'
+TRAIN_RAW_MEMMAP_FNAME = '../train_40_20.npy'
+TEST_RAW_MEMMAP_FNAME = '../test_40_20.npy'
 
-FRAME_SIZE = 400 * 60
-FRAME_SPACING = 400 * 30
+FRAME_SIZE = 400 * 40
+FRAME_SPACING = 400 * 20
 
 memory = Memory(cachedir=CACHE_DIR, verbose=1)
 
@@ -152,7 +152,7 @@ def gen_mean_of_each_channel(data):
     '''
     n_channels = data.shape[2]
     n_samples = data.shape[0]
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_mean)(data, n) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=4, verbose=1)(delayed(get_mean)(data, n) for n in range(n_samples))
     column_names = ['mean_of_channel_' + str(idx) for idx in range(n_channels)]
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
     return  feature
@@ -170,7 +170,7 @@ def gen_std_of_each_channel(data):
     '''
     n_channels = data.shape[2]
     n_samples = data.shape[0]
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_std)(data, n) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=6, verbose=1)(delayed(get_std)(data, n) for n in range(n_samples))
     column_names = ['std_of_channel_' + str(idx) for idx in range(n_channels)]
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
     return  feature
@@ -182,7 +182,7 @@ def get_abs_mean(data, idx):
 def gen_abs_mean_of_each_channel(data):
     n_channels = data.shape[2]
     n_samples = data.shape[0]
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_abs_mean)(data, n) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=4, verbose=1)(delayed(get_abs_mean)(data, n) for n in range(n_samples))
     column_names = ['abs_mean_of_channel_' + str(idx) for idx in range(n_channels)]
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
     return  feature
@@ -207,7 +207,7 @@ def gen_freq_of_each_channel(data):
     # band = [freq for freq in range(0, 60, 3)]
     band = [0, 1, 2, 4, 8, 12, 16, 20, 30, 40, 50, 80, 120]
 
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_freq)(data, n, band, 400) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=10, verbose=1)(delayed(get_freq)(data, n, band, 400) for n in range(n_samples))
 
     column_names = []
     for idx in range(n_channels):
@@ -236,7 +236,7 @@ def gen_entropy_of_each_channel(data):
     # band = [freq for freq in range(0, 60, 3)]
     band = [0, 1, 2, 4, 8, 12, 16, 20, 30, 40, 50, 80, 120]
 
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_entropy)(data, n, band, 400) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=10, verbose=1)(delayed(get_entropy)(data, n, band, 400) for n in range(n_samples))
     column_names = ['entropy_of_channel_' + str(idx) for idx in range(n_channels)]
     feature = pd.DataFrame(np.array(raw_feature), columns=column_names)
     feature = feature.fillna(feature.mean())
@@ -256,7 +256,7 @@ def get_corr(data, idx):
 def gen_corr_between_signals(data):
     n_channels = data.shape[2]
     n_samples = data.shape[0]
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_corr)(data, n) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=10, verbose=1)(delayed(get_corr)(data, n) for n in range(n_samples))
 
     column_names = []
     for k in range(n_channels):
@@ -289,7 +289,7 @@ def gen_freq_corr_between_signals(data):
     n_channels = data.shape[2]
     n_samples = data.shape[0]
     band = [freq for freq in range(0, 100)]
-    raw_feature = Parallel(n_jobs=24, verbose=1)(delayed(get_freq_corr)(data, n, band, 400) for n in range(n_samples))
+    raw_feature = Parallel(n_jobs=10, verbose=1)(delayed(get_freq_corr)(data, n, band, 400) for n in range(n_samples))
 
     column_names = []
     for k in range(n_channels):
@@ -351,7 +351,7 @@ def gen_feature(raw_data_train, raw_data_test):
 
     # gen feature
     print('generate feature of each channel of train...')
-    train_array = np.memmap(raw_data_train['data']['path'], shape=raw_data_train['data']['shape'], mode='r')
+    train_array = np.memmap(raw_data_train['data']['path'], shape=raw_data_train['data']['shape'], dtype='float32', mode='r')
     train_mean_of_each_channel = gen_mean_of_each_channel(train_array)
     train_std_of_each_channel = gen_std_of_each_channel(train_array)
     train_abs_mean_of_each_channel = gen_abs_mean_of_each_channel(train_array)
@@ -361,7 +361,7 @@ def gen_feature(raw_data_train, raw_data_test):
     train_freq_corr_between_signals = gen_freq_corr_between_signals(train_array)
 
     print('generate feature of each channel of test...')
-    test_array = np.memmap(raw_data_test['data']['path'], shape=raw_data_test['data']['shape'], mode='r')
+    test_array = np.memmap(raw_data_test['data']['path'], shape=raw_data_test['data']['shape'], dtype='float32', mode='r')
     test_mean_of_each_channel = gen_mean_of_each_channel(test_array)
     test_std_of_each_channel = gen_std_of_each_channel(test_array)
     test_abs_mean_of_each_channel = gen_abs_mean_of_each_channel(test_array)
@@ -403,7 +403,7 @@ def gen_feature(raw_data_train, raw_data_test):
 
 
 @memory.cache
-def split_train_by_label(df_train, test_size=0.2, random_state=5678):
+def split_train_by_label(df_train, test_size=0.2, random_state=567890):
     columns = df_train.columns
 
     df_train_false = df_train[df_train['hour'] == -1]
@@ -436,7 +436,7 @@ def split_train_by_label(df_train, test_size=0.2, random_state=5678):
 def main():
     train_data_path_pattern = sys.argv[1]
     test_data_path_pattern = sys.argv[2]
-    output_data_name = datetime.datetime.now().strftime("%Y%m%d%H") + sys.argv[3]
+    output_data_name = '../' + datetime.datetime.now().strftime("%Y%m%d%H") + sys.argv[3]
 
     raw_data_train = extract_train_from_path(train_data_path_pattern, TRAIN_RAW_MEMMAP_FNAME, frame_size=FRAME_SIZE, spacing=FRAME_SPACING)
     raw_data_test = extract_test_from_path(test_data_path_pattern, TEST_RAW_MEMMAP_FNAME, frame_size=FRAME_SIZE, spacing=FRAME_SPACING)
