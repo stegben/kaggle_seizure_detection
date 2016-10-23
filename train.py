@@ -21,7 +21,21 @@ from tqdm import tqdm
 
 search_models = [
     {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': None, 'max_features': 0.01, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 4, 'max_features': 0.02, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 4, 'max_features': 0.03, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 5, 'max_features': 0.02, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 5, 'max_features': 0.03, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 6, 'max_features': 0.02, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 6, 'max_features': 0.03, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 7, 'max_features': 0.02, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
+    {'model': RandomForestClassifier, 'params': {
+        'n_estimators': 2000, 'criterion': 'gini', 'max_depth': 7, 'max_features': 0.03, 'n_jobs': 20, 'verbose':1, 'class_weight': 'balanced'}},
 ]
 
 def combine_fname_pred(pred, fnames):
@@ -60,8 +74,10 @@ def main():
 
     score = []
     best_mean_model = None
+    best_mean_model_param = None
     best_mean_auc = 0.
     best_ms_model = None
+    best_ms_model_param = None
     best_ms_auc = 0.
 
     for model_param in tqdm(search_models):
@@ -81,24 +97,26 @@ def main():
         print('mean AUC score: {}'.format(mean_score))
         print('mean square AUC score: {}'.format(ms_score))
 
-        pred_mean = clf.predict_proba(x_test)
-        df_test['Class'] = pred_mean[:, 1]
-        df_test.groupby('fnames')['Class'].mean().to_csv('mean_' + sub_fname, index_label='File', header=True)
-
-        pred_ms = clf.predict_proba(x_test)
-        df_test['Class'] = pred_ms[:, 1]
-        df_test.groupby('fnames')['Class'].agg(lambda x: np.mean(np.square(x))).to_csv('mean_square_' + sub_fname, index_label='File', header=True)
-
         if mean_score > best_mean_auc:
             best_mean_auc = mean_score
             best_mean_model = clf
+            best_mean_model_param = model_param
         if ms_score > best_ms_auc:
             best_ms_auc = ms_score
             best_ms_model = clf
+            best_ms_model_param = model_param
+    print(best_mean_model_param)
+    clf = best_mean_model_param['model'](**best_mean_model_param['params'])
+    clf.fit(np.concatenate((x_subtrain, x_validation), axis=0), np.concatenate((y_subtrain, y_validation), axis=0))
+    pred_mean = clf.predict_proba(x_test)
+    df_test['Class'] = pred_mean[:, 1]
+    df_test.groupby('fnames')['Class'].mean().to_csv('mean_' + sub_fname, index_label='File', header=True)
 
+    # pred_ms = clf.predict_proba(x_test)
+    # df_test['Class'] = pred_ms[:, 1]
+    # df_test.groupby('fnames')['Class'].agg(lambda x: np.mean(np.square(x))).to_csv('mean_square_' + sub_fname, index_label='File', header=True)
 
     import ipdb; ipdb.set_trace()
-
 
 
 if __name__ == '__main__':
