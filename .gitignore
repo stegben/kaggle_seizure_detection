@@ -95,3 +95,5 @@ raw_data/
 *.zip
 
 cache/
+*pkl
+*csv
