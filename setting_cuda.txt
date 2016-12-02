@@ -2,4 +2,4 @@ export CUDA_HOME=/usr/local/cuda
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
 
-export THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32
+export THEANO_FLAGS=mode=FAST_RUN,device=gpu0,floatX=float32
