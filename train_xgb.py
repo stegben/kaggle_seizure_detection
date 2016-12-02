@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import joblib
 
-from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
 # from sklearn.cross_validation import PredefinedSplit
 # from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import roc_auc_score
@@ -20,18 +20,62 @@ from tqdm import tqdm
 #                ]
 
 search_models = [
-    {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': 18, 'max_features': 0.12, 'n_jobs': 20, 'verbose':1,}},
-    {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': 18, 'max_features': 0.13, 'n_jobs': 20, 'verbose':1,}},
-    {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': 18, 'max_features': 0.14, 'n_jobs': 20, 'verbose':1,}},
-    {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': 19, 'max_features': 0.12, 'n_jobs': 20, 'verbose':1,}},
-    {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': 19, 'max_features': 0.13, 'n_jobs': 20, 'verbose':1,}},
-    {'model': RandomForestClassifier, 'params': {
-        'n_estimators': 500, 'criterion': 'gini', 'max_depth': 19, 'max_features': 0.14, 'n_jobs': 20, 'verbose':1,}},
+    {
+        'min_child_weight': 1,
+        'learning_rate': 0.03,
+        'colsample_bytree': 0.5,
+        'subsample': 0.7,
+        'gamma': 1,
+        'silent': 0,
+        'seed': 1234,
+        # 'booster': 'gblinear',
+        # 'booster': 'gbtree',
+        'max_depth': 6,
+        'objective': "binary:logistic", # 'rank:pairwise'
+        'nthread': 10,
+    },
+    {
+        'min_child_weight': 1,
+        'learning_rate': 0.03,
+        'colsample_bytree': 0.6,
+        'subsample': 0.7,
+        'gamma': 1,
+        'silent': 0,
+        'seed': 1234,
+        # 'booster': 'gblinear',
+        # 'booster': 'gbtree',
+        'max_depth': 6,
+        'objective': "binary:logistic", # 'rank:pairwise'
+        'nthread': 10,
+    },
+    {
+        'min_child_weight': 1,
+        'learning_rate': 0.03,
+        'colsample_bytree': 0.7,
+        'subsample': 0.7,
+        'gamma': 1,
+        'silent': 0,
+        'seed': 1234,
+        # 'booster': 'gblinear',
+        # 'booster': 'gbtree',
+        'max_depth': 6,
+        'objective': "binary:logistic", # 'rank:pairwise'
+        'nthread': 10,
+    },
+    {
+        'min_child_weight': 1,
+        'learning_rate': 0.03,
+        'colsample_bytree': 0.8,
+        'subsample': 0.7,
+        'gamma': 1,
+        'silent': 0,
+        'seed': 1234,
+        # 'booster': 'gblinear',
+        # 'booster': 'gbtree',
+        'max_depth': 6,
+        'objective': "binary:logistic", # 'rank:pairwise'
+        'nthread': 10,
+    },
 ]
 
 def combine_fname_pred(pred, fnames):
@@ -63,9 +107,9 @@ def main():
 
     x_test = df_test.drop(['fnames'], axis=1).values
 
-    # subtrain_fold = [-1 for i in range(len(y_subtrain))]
+    # f_subtrainold = [-1 for i in range(len(y_subtrain))]
     # validation_fold = [0 for i in range(len(y_validation))]
-    # test_fold = subtrain_fold + validation_fold
+    # test_fold = f_subtrainold + validation_fold
     # ps = PredefinedSplit(test_fold)
 
     score = []
@@ -78,8 +122,18 @@ def main():
 
     for model_param in tqdm(search_models):
         pprint(model_param)
-        clf = model_param['model'](**model_param['params'])
-        clf.fit(x_subtrain, y_subtrain)
+
+        clf = xgb.XGBClassifier(n_estimators=2000, **model_param)
+        clf.fit(
+            x_subtrain, y_subtrain,
+            eval_set=[(x_subtrain, y_subtrain), (x_validation, y_validation)],
+            eval_metric='auc',
+            early_stopping_rounds=30,
+            verbose=True,
+        )
+
+        # clf = model_param['model'](**model_param['params'])
+        # clf.fit(x_subtrain, y_subtrain)
 
         pred_validation = clf.predict_proba(x_validation)
         pred_with_fname = combine_fname_pred(pred_validation[:, 1], df_validation['fnames'])
@@ -95,14 +149,13 @@ def main():
 
         if mean_score > best_mean_auc:
             best_mean_auc = mean_score
-            best_mean_model = clf
             best_mean_model_param = model_param
         if ms_score > best_ms_auc:
             best_ms_auc = ms_score
-            best_ms_model = clf
             best_ms_model_param = model_param
     print(best_mean_model_param)
-    clf = best_mean_model_param['model'](**best_mean_model_param['params'])
+    print(best_ms_model_param)
+    clf = xgb.XGBClassifier(n_estimators=300, **best_mean_model_param)
     clf.fit(np.concatenate((x_subtrain, x_validation), axis=0), np.concatenate((y_subtrain, y_validation), axis=0))
     pred_mean = clf.predict_proba(x_test)
     df_test['Class'] = pred_mean[:, 1]

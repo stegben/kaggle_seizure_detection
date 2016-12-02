@@ -7,9 +7,13 @@ def bin_power(X, Band, Fs):
     for Freq_Index in range(0, len(Band) - 1):
         Freq = float(Band[Freq_Index])
         Next_Freq = float(Band[Freq_Index + 1])
-        Power[Freq_Index] = np.sqrt(np.mean(np.square(
+        # Power[Freq_Index] = np.sqrt(np.mean(np.square(
+        #     C[np.floor(Freq * len(X) / Fs): np.floor(Next_Freq * len(X) / Fs)]
+        # )))
+        Power[Freq_Index] = np.sum(
             C[np.floor(Freq * len(X) / Fs): np.floor(Next_Freq * len(X) / Fs)]
-        )))
+        )
+        
     power_sum = np.sum(Power)
     if power_sum <= 0:
         power_sum = 1e-10
