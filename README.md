@@ -12,8 +12,13 @@ python image_generation.py data.pkl
 ```
 
 ### Train Model
+Train pure CNN:
 ```
-python train_rnn.py
+python train_cnn.py data.pkl submission.csv
+```
+Train CNN LSTM stacking model:
+```
+python train_cnn_lstm.py data.pkl submission.csv
 ```
 
 ## Train Feature based model
