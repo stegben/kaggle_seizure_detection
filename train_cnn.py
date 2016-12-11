@@ -1,5 +1,4 @@
 import sys
-import uuid
 import logging
 from collections import Counter
 from datetime import datetime
@@ -15,7 +14,7 @@ from keras.models import load_model
 from keras.layers import Dense
 from keras.layers import Activation
 from keras.layers import Input
-from keras.layers import merge, Permute, Reshape
+from keras.layers import merge
 from keras.layers.advanced_activations import PReLU
 from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
@@ -23,161 +22,55 @@ from keras.layers.core import Dropout
 from keras.layers.core import Flatten
 from keras.layers.noise import GaussianNoise
 from keras.layers.normalization import BatchNormalization
-from keras.layers.recurrent import GRU, LSTM
 from keras.regularizers import l1, l2
 from keras.optimizers import Nadam
 from keras.optimizers import Adadelta
 from keras.optimizers import SGD
 
 from keras.callbacks import Callback
-from keras.callbacks import EarlyStopping
 from keras.callbacks import ReduceLROnPlateau
-from keras.callbacks import ModelCheckpoint
+
+from utils import EarlyStoppingByAUC
+from utils import ModelAUCCheckpoint
 
 
 NB_EPOCH_MY_MODEL = 100
 
 
-class ModelAUCCheckpoint(Callback):
-    def __init__(self, filepath, validation_data, verbose=0, save_weights_only=False):
-        super(ModelAUCCheckpoint, self).__init__()
-        self.verbose = verbose
-        self.filepath = filepath
-        self.X_val, self.y_val = validation_data
-        self.save_weights_only = save_weights_only
-        self.best = 0.
-
-    def on_epoch_end(self, epoch, logs={}):
-        filepath = self.filepath.format(epoch=epoch, **logs)
-
-        y_pred = self.model.predict(self.X_val, verbose=0).flatten()
-        current = roc_auc_score(self.y_val, y_pred)
-        print("\ninterval evaluation - epoch: {:d} - score: {:.6f}".format(epoch, current))
-
-        if current >= self.best:
-            if self.verbose > 0:
-                print('\nEpoch %05d: ROC AUC improved from %0.5f to %0.5f,'
-                      ' saving model to %s'
-                      % (epoch, self.best,
-                         current, filepath))
-            self.best = current
-            if self.save_weights_only:
-                self.model.save_weights(filepath, overwrite=True)
-            else:
-                self.model.save(filepath, overwrite=True)
-        else:
-            if self.verbose > 0:
-                print('\nEpoch %05d: ROC AUC did not improve' %
-                      (epoch))
-
-
-class EarlyStoppingByAUC(Callback):
-    def __init__(self, validation_data,  patience=0, verbose=0):
-        super(EarlyStoppingByAUC, self).__init__()
-
-        self.patience = patience
-        self.verbose = verbose
-        self.wait = 0
-        self.X_val, self.y_val = validation_data
-
-    def on_train_begin(self, logs={}):
-        self.wait = 0       # Allow instances to be re-used
-        self.best = 0.0
-
-    def on_epoch_end(self, epoch, logs={}):
-        y_pred = self.model.predict(self.X_val, verbose=0).flatten()
-        current = roc_auc_score(self.y_val, y_pred)
-
-        if current >= self.best:
-            self.best = current
-            self.wait = 0
-        else:
-            if self.wait >= self.patience:
-                if self.verbose > 0:
-                    print('\nEpoch %05d: early stopping' % (epoch))
-                self.model.stop_training = True
-            self.wait += 1
-
-
 def my_model(input_dim):
     image_input = Input(shape=input_dim)
-    encoded_image = GaussianNoise(sigma=0.0015)(image_input)
+    encoded_image = GaussianNoise(sigma=0.0003)(image_input)
     encoded_image = Convolution2D(16, 2, 2, border_mode='valid', dim_ordering='th')(encoded_image)
     # encoded_image = BatchNormalization(axis=1)(encoded_image)
     encoded_image = Activation('relu')(encoded_image)
     encoded_image = Convolution2D(16, 3, 3, border_mode='valid', dim_ordering='th')(encoded_image)
     # encoded_image = BatchNormalization(axis=1)(encoded_image)
     encoded_image = Activation('relu')(encoded_image)
-    encoded_image = MaxPooling2D(pool_size=(1, 2), dim_ordering='th')(encoded_image)
-    encoded_image = Dropout(0.2)(encoded_image)
-    encoded_image = Convolution2D(16, 3, 3, border_mode='valid', dim_ordering='th')(encoded_image)
-    # encoded_image = BatchNormalization(axis=1)(encoded_image)
-    encoded_image = Activation('relu')(encoded_image)
-    encoded_image = Convolution2D(16, 3, 4, border_mode='valid', dim_ordering='th')(encoded_image)
-    # encoded_image = BatchNormalization(axis=1)(encoded_image)
-    encoded_image = Activation('relu')(encoded_image)
-    encoded_image = MaxPooling2D(pool_size=(1, 2), dim_ordering='th')(encoded_image)
-    encoded_image = Dropout(0.2)(encoded_image)
-    encoded_image = Convolution2D(32, 3, 5, border_mode='valid', dim_ordering='th')(encoded_image)
-    # encoded_image = BatchNormalization(axis=1)(encoded_image)
-    encoded_image = Activation('relu')(encoded_image)
+    encoded_image = MaxPooling2D(pool_size=(1, 3), dim_ordering='th')(encoded_image)
+    encoded_image = Dropout(0.3)(encoded_image)
     encoded_image = Convolution2D(32, 5, 5, border_mode='valid', dim_ordering='th')(encoded_image)
     # encoded_image = BatchNormalization(axis=1)(encoded_image)
     encoded_image = Activation('relu')(encoded_image)
-    encoded_image = MaxPooling2D(pool_size=(2, 2), dim_ordering='th')(encoded_image)
-    encoded_image = Dropout(0.2)(encoded_image)
-
-    encoded_image = Permute((3, 1, 2))(encoded_image)
-    encoded_image = Reshape((9, 13*32))(encoded_image)
-
-    encoded_image = LSTM(64, return_sequences=True, name='rec1', activation='tanh')(encoded_image)
-    encoded_image = Dropout(0.1)(encoded_image)
-    encoded_image = LSTM(128, return_sequences=False, name='rec2', activation='tanh')(encoded_image)
-    encoded_image = Dropout(0.1)(encoded_image)
-    # encoded_image = Flatten()(encoded_image)
+    encoded_image = Convolution2D(32, 7, 7, border_mode='valid', dim_ordering='th')(encoded_image)
+    # encoded_image = BatchNormalization(axis=1)(encoded_image)
+    encoded_image = Activation('relu')(encoded_image)
+    encoded_image = MaxPooling2D(pool_size=(2, 10), dim_ordering='th')(encoded_image)
+    encoded_image = Dropout(0.3)(encoded_image)
+    encoded_image = Flatten()(encoded_image)
 
     pid_input = Input(shape=(3,))
-    encoded_pid = Dense(2, init='he_normal',W_regularizer=l2(0.2))(pid_input)
+    encoded_pid = Dense(3, init='he_normal',W_regularizer=l2(0.01))(pid_input)
     encoded_pid = Activation('relu')(encoded_pid)
-    encoded_pid = Dropout(0.3)(encoded_pid)
+    encoded_pid = Dropout(0.5)(encoded_pid)
 
-    # image_model = Sequential([
-    #     GaussianNoise(sigma=0.0007, input_shape=input_dim),
-    #     Convolution2D(16, 3, 3, border_mode='valid', dim_ordering='th', W_regularizer=l2(0.0001)),
-    #     # BatchNormalization(axis=1),
-    #     Activation('relu'),
-    #     Convolution2D(16, 5, 5, border_mode='valid', dim_ordering='th', W_regularizer=l2(0.0001)),
-    #     # BatchNormalization(axis=1),
-    #     Activation('relu'),
-    #     MaxPooling2D(pool_size=(3, 3)),
-    #     Dropout(0.5),
-    #     Convolution2D(32, 7, 7, border_mode='valid', dim_ordering='th', W_regularizer=l2(0.0001)),
-    #     # BatchNormalization(axis=1),
-    #     Activation('relu'),
-    #     Convolution2D(32, 13, 13, border_mode='valid', dim_ordering='th', W_regularizer=l2(0.0001)),
-    #     # BatchNormalization(axis=1),
-    #     Activation('relu'),
-    #     MaxPooling2D(pool_size=(5, 5)),
-    #     Dropout(0.5),
-    #     Flatten(),
-    # ])
-    #
-    # pid_model = Sequential([
-    #     Dense(20, init='he_normal', input_shape=(3,)),
-    #     Activation('tanh'),
-    #     Dropout(0.2),
-    # ])
-    #
-    # encoded_pid = pid_model(pid_input)
-    # encoded_image = image_model(image_model)
     merged = merge([encoded_image, encoded_pid], mode='concat')
 
-    output = Dense(200, init='he_normal', W_regularizer=l2(0.000001))(merged)
+    output = Dense(200, init='he_normal', W_regularizer=l2(0.0001))(merged)
     output = PReLU(init='zero', weights=None)(output)
-    output = Dropout(0.3)(output)
+    output = Dropout(0.5)(output)
     output = Dense(200, init='he_normal')(output)
     output = PReLU(init='zero', weights=None)(output)
-    output = Dropout(0.3)(output)
+    output = Dropout(0.5)(output)
     output = Dense(1)(output)
     output = Activation('sigmoid')(output)
 
@@ -289,7 +182,7 @@ def main():
     validation_y = np.concatenate(all_validation_y)
     validation_pid = pd.get_dummies(validation_pid).sort_index(axis=1).values
 
-    best_model_fname = '../' + datetime.now().strftime("%Y%m%d%H") + '_' + str(uuid.uuid4()) + '_'
+    best_model_fname = '../' + datetime.now().strftime("%Y%m%d%H") + '_'
     model, auc = train_my_model(
         subtrain_x,
         subtrain_pid,

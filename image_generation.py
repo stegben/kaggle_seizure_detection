@@ -46,16 +46,6 @@ def gen_metadata(fpath):
             'fname': file_name,
         }
 
-'''
-def process_single_mat(processed_data, frame_idx):
-    start = frame_idx * spacing
-    end = frame_idx*spacing + frame_size
-    raw_data_frame = raw_data[start:end, :]
-    for channel_idx in range(n_channels):
-        signal = raw_data_frame[:, channel_idx]
-        _, power_ratio = bin_power(signal, Band=freq_bin, Fs=400)
-        data[channel_idx, :, frame_idx] = power_ratio
-'''
 
 @memory.cache
 def create_data(path_pattern, frame_size, spacing, is_test, use_power=True):
@@ -92,13 +82,7 @@ def create_data(path_pattern, frame_size, spacing, is_test, use_power=True):
                     power, power_ratio = bin_power(signal, Band=freq_bin, Fs=400)
                     power_ratio = np.nan_to_num(power_ratio)
                     data[idx, channel_idx, :, frame_idx] = power_ratio
-        '''
-        processed_data = np.zeros((n_channels, n_freq_bins, n_frames_per_sample), dtype='float32')
-        Parallel(n_jobs=4, verbose=1)(
-            delayed(process_single_mat)(processed_data, frame_idx) for frame_idx in range(n_frames_per_sample)
-        )
-        data[idx] = processed_data
-        '''
+
         # process metadata
         if is_test:
             info = gen_metadata(fpath)
@@ -139,7 +123,6 @@ def split_train(train_x, train_y, train_metadata):
         true_idx['subtrain'] = tr_idx
         true_idx['validation'] = te_idx
 
-    # ss = ShuffleSplit(len(hours_false), n_iter=1, test_size=None, train_size=int(len(true_idx['subtrain'])*9.5), random_state=random_state)
     ss = ShuffleSplit(len(hours_false), n_iter=1, test_size=test_size, random_state=random_state)
     false_idx = {}
     for tr_idx, te_idx in ss:
