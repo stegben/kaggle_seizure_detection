@@ -20,7 +20,7 @@ from sklearn.cross_validation import ShuffleSplit
 from utils import bin_power
 from utils import spectrum_entropy
 
-from image_generation import get_all_file_name
+from utils import get_all_file_name
 
 CACHE_DIR = '../cache'
 RAW_DATA_DIR = '../raw_data/'
@@ -33,14 +33,6 @@ FRAME_SIZE = 400 * 10
 FRAME_SPACING = 400 * 5
 
 memory = Memory(cachedir=CACHE_DIR, verbose=1)
-
-
-# @memory.cache
-# def get_all_file_name(path_pattern):
-#     all_fpath = []
-#     for fpath in glob.glob(path_pattern):
-#         all_fpath.append(fpath)
-#     return len(all_fpath), all_fpath
 
 
 def process_raw_train(data, idx, fpath, n_frames_per_sample, frame_size, spacing):

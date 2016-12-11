@@ -16,6 +16,7 @@ from joblib import Memory
 from joblib import Parallel, delayed
 
 from utils import bin_power
+from utils import get_all_file_name
 
 
 CACHE_DIR = '../nn_cache'
@@ -24,25 +25,6 @@ SAFE_DATA_LABEL = '../raw_data/train_and_test_data_labels_safe.csv'
 FRAME_SIZE = 400 * 10
 FRAME_SPACING = 400 * 5
 USE_POWER = False
-
-memory = Memory(cachedir=CACHE_DIR, verbose=1)
-
-
-@memory.cache
-def get_all_file_name(path_pattern, is_train):
-    df_correction = pd.read_csv(SAFE_DATA_LABEL)
-    safe_train = set(df_correction[df_correction['safe'] == 1]['image'].tolist())
-    all_fpath = []
-    for fpath in glob.glob(path_pattern):
-        if is_train:
-            if os.path.basename(fpath) not in safe_train:
-                print('drop: {} because unsafe'.format(fpath))
-                continue
-            if os.path.getsize(fpath) < 60001:
-                print('drop: {} due to filesize'.format(fpath))
-                continue
-        all_fpath.append(fpath)
-    return len(all_fpath), all_fpath
 
 
 def gen_metadata(fpath):
