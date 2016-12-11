@@ -24,3 +24,16 @@ python train_cnn_lstm.py data.pkl submission.csv
 ## Train Feature based model
 
 ### Create Data
+```
+python feature_generation.py raw_data/train*/*.mat raw_data/test*/*.mat data.pkl
+```
+
+### Train Random Forest
+```
+python train_rf.py data.pkl submission.csv
+```
+
+### Train Extreme Gradient Boosting
+```
+python train_xgb.py data.pkl submission.csv
+```
